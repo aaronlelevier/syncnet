@@ -1,0 +1,6 @@
+-sname syncnet
+
+-setcookie syncnet_cookie
+
++K true
++A30
