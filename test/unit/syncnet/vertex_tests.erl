@@ -13,7 +13,27 @@
 initialized_as_idle_with_default_state_test() ->
   {ok, Pid} = vertex:start_link(),
   Ret = vertex:get_state(Pid),
-  ?assertEqual(#{state => idle, data => #{}}, Ret).
+  ?assertEqual(idle, Ret).
 
-%%nonnull_message_changes_state_from_idle_to_running() ->
-%%  {ok, Pid} = vertex:start_link(),
+wakeup_msg_from_env_module_changes_state_from_idle_to_running_test() ->
+  {ok, Pid} = vertex:start_link(),
+  {ok, _Pid} = env:start_link(),
+  % pre-test - initial state is idle
+  ?assertEqual(idle, vertex:get_state(Pid)),
+
+  % replies that state is running
+  ?assertEqual({state, running}, env:wakeup(Pid)),
+
+  % state is now running
+  ?assertEqual(running, vertex:get_state(Pid)).
+
+wakeup_msg_from_non_env_does_not_change_state_test() ->
+  {ok, Pid} = vertex:start_link(),
+  % pre-test - initial state is idle
+  ?assertEqual(idle, vertex:get_state(Pid)),
+
+  % replies that state is running
+  ?assertEqual({state, idle}, vertex:wakeup(Pid)),
+
+  % state is now running
+  ?assertEqual(idle, vertex:get_state(Pid)).

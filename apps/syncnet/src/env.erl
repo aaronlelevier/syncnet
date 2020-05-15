@@ -1,67 +1,53 @@
 %%%-------------------------------------------------------------------
-%%% @author aaron lelevier
-%%% @doc
-%%% A "vertex" is a Node in the network. These are it's states:
-%%% - idle
-%%% - running
-%%% - halted
+%%% @author Aaron Lelevier
+%%% @doc This is the Environment (Env) Node - there is only one of these
+%%% Nodes in the network.
+%%%
+%%% The Env Node is thought of to always be 'running', so it doesn't
+%%% have states
 %%% @end
-%%%--------------------------------------------------------------------module(vertex).
--module(vertex).
+%%%-------------------------------------------------------------------
+-module(env).
 -behaviour(gen_server).
 -include_lib("syncnet/include/macros.hrl").
 
 %% API
 -export([start_link/0]).
--export([get_state/1, wakeup/1]).
-
+-export([wakeup/1]).
 %% gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
   code_change/3]).
 
 %% Macros
 -define(SERVER, ?MODULE).
--define(DEFAULT_STATE, #{
-  state => idle,
-  data => #{}
-}).
+
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
-get_state(Pid) ->
-  gen_server:call(Pid, get_state).
-
-wakeup(Pid) ->
-  gen_server:call(Pid, wakeup).
+-spec wakeup(pid()) -> {state, atom()}.
+wakeup(NodePid) ->
+  gen_server:call(?SERVER, {wakeup, NodePid}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
 
+%% @doc - this is a named process, only 1 in the network
 -spec start_link() -> {ok, pid()}.
 start_link() ->
-  gen_server:start_link(?MODULE, [], []).
+  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-  {ok, ?DEFAULT_STATE}.
+  {ok, #{}}.
 
-handle_call(get_state, _From, State) ->
-  Reply = maps:get(state, State),
+handle_call({wakeup, Pid}, _From, State) ->
+  ?DEBUG({{wakeup, Pid}, _From, State}),
+  {state, VertexState} =  vertex:wakeup(Pid),
+  Reply = {state, VertexState},
   {reply, Reply, State};
-handle_call(wakeup, {FromPid, _Ref}, State) ->
-  NewState = case process_info(FromPid, registered_name) of
-    {registered_name, Name} ->
-      if Name == env -> State#{state := running};
-        true -> State
-      end;
-    [] -> State
-  end,
-  Reply = {state, maps:get(state, NewState)},
-  {reply, Reply, NewState};
 handle_call(_Request, _From, State) ->
-  ?DEBUG({_Request, _From, State}),
   {reply, ok, State}.
 
 handle_cast(_Request, State) ->
