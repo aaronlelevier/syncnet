@@ -44,9 +44,7 @@ init([]) ->
 
 handle_call({wakeup, Pid}, _From, State) ->
   ?DEBUG({{wakeup, Pid}, _From, State}),
-  {state, VertexState} =  vertex:wakeup(Pid),
-  Reply = {state, VertexState},
-  {reply, Reply, State};
+  {reply, vertex:wakeup(Pid), State};
 handle_call(_Request, _From, State) ->
   {reply, ok, State}.
 
