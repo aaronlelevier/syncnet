@@ -14,16 +14,15 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
   code_change/3]).
 
+%% Macros
 -define(SERVER, ?MODULE).
-
--record(round_state, {
-  count = 0
-}).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
+%% @doc performs a round and increments the round count
+-spec do_round() -> {count, integer()}.
 do_round() ->
   gen_server:call(?SERVER, do_round).
 
@@ -35,25 +34,24 @@ start_link() ->
   gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 init([]) ->
-  {ok, #round_state{}}.
+  {ok, #{count => 0}}.
 
 handle_call(do_round, _From, State) ->
-  NewState = State#round_state{count = State#round_state.count + 1},
-  Count = NewState#round_state.count,
-  {reply, Count, NewState};
-handle_call(_Request, _From, State = #round_state{}) ->
+  Count = maps:get(count, State) + 1,
+  {reply, {count, Count}, State#{count := Count}};
+handle_call(_Request, _From, State) ->
   {reply, ok, State}.
 
-handle_cast(_Request, State = #round_state{}) ->
+handle_cast(_Request, State) ->
   {noreply, State}.
 
-handle_info(_Info, State = #round_state{}) ->
+handle_info(_Info, State) ->
   {noreply, State}.
 
-terminate(_Reason, _State = #round_state{}) ->
+terminate(_Reason, _State) ->
   ok.
 
-code_change(_OldVsn, State = #round_state{}, _Extra) ->
+code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
 
 %%%===================================================================

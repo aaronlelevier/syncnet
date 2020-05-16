@@ -13,7 +13,7 @@
 
 %% API
 -export([start_link/0]).
--export([get_state/1, wakeup/1]).
+-export([get_state/1, get_status/1, get_uid/1, wakeup/1]).
 
 %% gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -21,17 +21,16 @@
 
 %% Macros
 -define(SERVER, ?MODULE).
--define(DEFAULT_STATE, #{
-  state => idle,
-  data => #{}
-}).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
-get_state(Pid) ->
-  gen_server:call(Pid, get_state).
+get_state(Pid) -> gen_server:call(Pid, get_state).
+
+get_status(Pid) -> gen_server:call(Pid, get_status).
+
+get_uid(Pid) -> gen_server:call(Pid, get_uid).
 
 wakeup(Pid) ->
   gen_server:call(Pid, wakeup).
@@ -42,14 +41,23 @@ wakeup(Pid) ->
 
 -spec start_link() -> {ok, pid()}.
 start_link() ->
-  gen_server:start_link(?MODULE, [], []).
+  Uid = rand:uniform(),
+  gen_server:start_link(?MODULE, Uid, []).
 
-init([]) ->
-  {ok, ?DEFAULT_STATE}.
+init(Uid) ->
+  State = #{
+    state => idle,
+    status => unknown,
+    uid => Uid
+  },
+  {ok, State}.
 
-handle_call(get_state, _From, State) ->
-  Reply = maps:get(state, State),
-  {reply, Reply, State};
+%% getters
+handle_call(get_state, _From, State) -> {reply, maps:get(state, State), State};
+handle_call(get_status, _From, State) -> {reply, maps:get(status, State), State};
+handle_call(get_uid, _From, State) -> {reply, maps:get(uid, State), State};
+
+%% wakeup - only works if called from "env" process
 handle_call(wakeup, {FromPid, _Ref}, State) ->
   NewState = case process_info(FromPid, registered_name) of
     {registered_name, Name} ->
