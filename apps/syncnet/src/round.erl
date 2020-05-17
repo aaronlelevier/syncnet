@@ -8,7 +8,7 @@
 
 %% API
 -export([start_link/0]).
--export([do_round/0, add_vertex/1, list_vertices/0]).
+-export([do_round/0, add_vertex/1, list_vertices/0, link_vertices/1]).
 
 %% gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -52,7 +52,10 @@ init([]) ->
 
 handle_call(do_round, _From, State) ->
   Count = maps:get(count, State) + 1,
-  {reply, {count, Count}, State#{count := Count}};
+  % tell each Pid which Pid is next in the Ring
+  State2 = link_vertices(State),
+
+  {reply, {count, Count}, State2#{count := Count}};
 
 handle_call({add_vertex, Pid}, _From, State) ->
   Vertices = [Pid | maps:get(vertices, State)],
@@ -80,9 +83,18 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-%% @doc signals to Edges to put all outgoing Messages in Vertices
-apply_msg_gen_func() -> 0.
+link_vertices(State) ->
+  case maps:get(vertices, State) of
+    [H|T] ->
+      L = link_vertices(H, T, []),
+      State#{vertices := L};
+    [] -> State
+  end.
 
-%% @doc signals to Edges to apply their State Transition function
-%% based upon their Current State and the Incoming Message
-apply_state_trans_func() -> 0.
+link_vertices(First, [], Acc) ->
+  [H|_] = tl(Acc),
+  vertex:link_next(First, H),
+  Acc;
+link_vertices(First, [H|T], Acc) ->
+  vertex:link_next(First, H),
+  link_vertices(H, T, [First|Acc]).

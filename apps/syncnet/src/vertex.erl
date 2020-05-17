@@ -13,7 +13,8 @@
 
 %% API
 -export([start_link/0]).
--export([get_state/1, get_status/1, get_uid/1, wakeup/1]).
+-export([get_state/1, get_status/1, get_uid/1, wakeup/1, get_next/1,
+  link_next/2]).
 
 %% gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -32,8 +33,13 @@ get_status(Pid) -> gen_server:call(Pid, get_status).
 
 get_uid(Pid) -> gen_server:call(Pid, get_uid).
 
+get_next(Pid) -> gen_server:call(Pid, get_next).
+
 wakeup(Pid) ->
   gen_server:call(Pid, wakeup).
+
+link_next(Pid, Next) ->
+  gen_server:call(Pid, {link_next, Next}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -48,7 +54,8 @@ init(Uid) ->
   State = #{
     state => idle,
     status => unknown,
-    uid => Uid
+    uid => Uid,
+    next => undefined
   },
   {ok, State}.
 
@@ -56,6 +63,7 @@ init(Uid) ->
 handle_call(get_state, _From, State) -> {reply, maps:get(state, State), State};
 handle_call(get_status, _From, State) -> {reply, maps:get(status, State), State};
 handle_call(get_uid, _From, State) -> {reply, maps:get(uid, State), State};
+handle_call(get_next, _From, State) -> {reply, maps:get(next, State), State};
 
 %% wakeup - only works if called from "env" process
 handle_call(wakeup, {FromPid, _Ref}, State) ->
@@ -68,6 +76,11 @@ handle_call(wakeup, {FromPid, _Ref}, State) ->
   end,
   Reply = {state, maps:get(state, NewState)},
   {reply, Reply, NewState};
+
+handle_call({link_next, Next}, _From, State) ->
+  {reply, ok, State#{next := Next}};
+
+%% catch all
 handle_call(_Request, _From, State) ->
   ?DEBUG({_Request, _From, State}),
   {reply, ok, State}.

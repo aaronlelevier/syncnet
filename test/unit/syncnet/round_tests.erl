@@ -23,7 +23,7 @@ can_get_handler_list_test_() ->
     fun round_cleanup/1,
     [
       fun do_round_increments_round_count/0,
-      fun add_and_list_vertices/0
+      fun link_vertices_to_next/0
     ]
   }.
 
@@ -34,12 +34,32 @@ do_round_increments_round_count() ->
   {count, Count2} = round:do_round(),
   ?assertEqual(2, Count2).
 
-add_and_list_vertices() ->
-  {ok, Pid} = vertex:start_link(),
+link_vertices_to_next() ->
+  {ok, Pid1} = vertex:start_link(),
   {ok, Pid2} = vertex:start_link(),
+  {ok, Pid3} = vertex:start_link(),
 
-  ?assertEqual(ok, round:add_vertex(Pid)),
-  ?assertEqual([Pid], round:list_vertices()),
-
+  % add to round
+  ?assertEqual(ok, round:add_vertex(Pid1)),
   ?assertEqual(ok, round:add_vertex(Pid2)),
-  ?assertEqual([Pid2, Pid], round:list_vertices()).
+  ?assertEqual(ok, round:add_vertex(Pid3)),
+
+  % 3 vertices in the round
+  ?assertEqual([Pid3, Pid2, Pid1], round:list_vertices()).
+
+link_vertices_test() ->
+  {ok, Pid1} = vertex:start_link(),
+  {ok, Pid2} = vertex:start_link(),
+  {ok, Pid3} = vertex:start_link(),
+
+  ?debugFmt("Pids: ~p~n", [{Pid3, Pid2, Pid1}]),
+
+  ?assertEqual(undefined, vertex:get_next(Pid1)),
+  ?assertEqual(undefined, vertex:get_next(Pid2)),
+  ?assertEqual(undefined, vertex:get_next(Pid3)),
+
+  round:link_vertices(#{vertices => [Pid3, Pid2, Pid1]}),
+
+  ?assertEqual(Pid2, vertex:get_next(Pid3)),
+  ?assertEqual(Pid1, vertex:get_next(Pid2)),
+  ?assertEqual(Pid3, vertex:get_next(Pid1)).
