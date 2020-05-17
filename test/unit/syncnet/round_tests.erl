@@ -38,28 +38,35 @@ link_vertices_to_next() ->
   {ok, Pid1} = vertex:start_link(),
   {ok, Pid2} = vertex:start_link(),
   {ok, Pid3} = vertex:start_link(),
-
-  % add to round
+  % add vertices to round
   ?assertEqual(ok, round:add_vertex(Pid1)),
   ?assertEqual(ok, round:add_vertex(Pid2)),
   ?assertEqual(ok, round:add_vertex(Pid3)),
+  % each Vertex doesn't have a Next until 'link_vertices' is called below
+  _ = [
+    ?assertEqual(undefined, vertex:get_next(X)) ||
+    X <- [Pid3, Pid2, Pid1]],
 
-  % 3 vertices in the round
-  ?assertEqual([Pid3, Pid2, Pid1], round:list_vertices()).
+  ?assertEqual(ok, round:link_vertices()),
+
+  _ = [
+    ?assertEqual(true, is_pid(vertex:get_next(X))) ||
+    X <- [Pid3, Pid2, Pid1]].
 
 link_vertices_test() ->
   {ok, Pid1} = vertex:start_link(),
   {ok, Pid2} = vertex:start_link(),
   {ok, Pid3} = vertex:start_link(),
+  _ = [
+    ?assertEqual(undefined, vertex:get_next(X)) ||
+    X <- [Pid3, Pid2, Pid1]],
 
-  ?debugFmt("Pids: ~p~n", [{Pid3, Pid2, Pid1}]),
+  Ret = round:link_vertices(#{vertices => [Pid3, Pid2, Pid1]}),
 
-  ?assertEqual(undefined, vertex:get_next(Pid1)),
-  ?assertEqual(undefined, vertex:get_next(Pid2)),
-  ?assertEqual(undefined, vertex:get_next(Pid3)),
-
-  round:link_vertices(#{vertices => [Pid3, Pid2, Pid1]}),
-
+  ?assertEqual(true, is_map(Ret)),
+  % order is maintained
+  ?assertEqual([Pid3, Pid2, Pid1], maps:get(vertices, Ret)),
+  % next is set for each vertex
   ?assertEqual(Pid2, vertex:get_next(Pid3)),
   ?assertEqual(Pid1, vertex:get_next(Pid2)),
   ?assertEqual(Pid3, vertex:get_next(Pid1)).

@@ -8,7 +8,8 @@
 
 %% API
 -export([start_link/0]).
--export([do_round/0, add_vertex/1, list_vertices/0, link_vertices/1]).
+-export([do_round/0, add_vertex/1, list_vertices/0, link_vertices/1,
+  link_vertices/0]).
 
 %% gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -36,6 +37,11 @@ add_vertex(Pid) ->
 list_vertices() ->
   gen_server:call(?SERVER, list_vertices).
 
+%% links each vertex to the next for the leader election process
+-spec link_vertices() -> ok.
+link_vertices() ->
+  gen_server:call(?SERVER, link_vertices).
+
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
@@ -52,10 +58,12 @@ init([]) ->
 
 handle_call(do_round, _From, State) ->
   Count = maps:get(count, State) + 1,
+  {reply, {count, Count}, State#{count := Count}};
+
+handle_call(link_vertices, _From, State) ->
   % tell each Pid which Pid is next in the Ring
   State2 = link_vertices(State),
-
-  {reply, {count, Count}, State2#{count := Count}};
+  {reply, ok, State2};
 
 handle_call({add_vertex, Pid}, _From, State) ->
   Vertices = [Pid | maps:get(vertices, State)],
@@ -94,7 +102,7 @@ link_vertices(State) ->
 link_vertices(First, [], Acc) ->
   [H|_] = tl(Acc),
   vertex:link_next(First, H),
-  Acc;
+  lists:reverse([First|Acc]);
 link_vertices(First, [H|T], Acc) ->
   vertex:link_next(First, H),
   link_vertices(H, T, [First|Acc]).
