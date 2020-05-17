@@ -37,3 +37,24 @@ wakeup_msg_from_non_env_does_not_change_state_test() ->
 
   % state is now running
   ?assertEqual(idle, vertex:get_state(Pid)).
+
+trans_vid_gt_uid_so_replace_uid_test() ->
+  Uid = 1,
+  Vid = 2,
+  State = #{uid => Uid, vid => Uid, status => unknown},
+  Ret = vertex:trans(Vid, State),
+  ?assertEqual(#{uid => Uid, vid => Vid, status => unknown}, Ret).
+
+trans_vid_lt_uid_so_do_nothing_test() ->
+  Uid = 2,
+  Vid = 1,
+  State = #{uid => Uid, vid => Uid, status => unknown},
+  Ret = vertex:trans(Vid, State),
+  ?assertEqual(State, Ret).
+
+trans_vid_eq_uid_so_elect_leader_test() ->
+  Uid = 2,
+  Vid = 2,
+  State = #{uid => Uid, vid => Uid, status => unknown},
+  Ret = vertex:trans(Vid, State),
+  ?assertEqual(#{uid => Uid, vid => Vid, status => leader}, Ret).

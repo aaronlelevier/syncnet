@@ -14,7 +14,7 @@
 %% API
 -export([start_link/0]).
 -export([get_state/1, get_status/1, get_uid/1, wakeup/1, get_next/1,
-  link_next/2, get_vid/1]).
+  link_next/2, get_vid/1, send/2, trans/2]).
 
 %% gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -31,30 +31,33 @@
 %%% API
 %%%===================================================================
 
--spec get_state(Pid::pid()) -> state().
+-spec get_state(Pid :: pid()) -> state().
 get_state(Pid) -> gen_server:call(Pid, get_state).
 
--spec get_status(Pid::pid()) -> status().
+-spec get_status(Pid :: pid()) -> status().
 get_status(Pid) -> gen_server:call(Pid, get_status).
 
--spec get_uid(Pid::pid()) -> float().
+-spec get_uid(Pid :: pid()) -> float().
 get_uid(Pid) -> gen_server:call(Pid, get_uid).
 
--spec get_vid(Pid::pid()) -> float().
+-spec get_vid(Pid :: pid()) -> float().
 get_vid(Pid) -> gen_server:call(Pid, get_vid).
 
--spec get_next(Pid::pid()) -> pid().
+-spec get_next(Pid :: pid()) -> pid().
 get_next(Pid) -> gen_server:call(Pid, get_next).
 
 %% @doc mutates the 'state' of the Pid if this call is from the 'env'
--spec wakeup(Pid::pid()) -> {state, state()}.
+-spec wakeup(Pid :: pid()) -> {state, state()}.
 wakeup(Pid) ->
   gen_server:call(Pid, wakeup).
 
 %% @doc set's the 'next' field of 'Pid' to 'Next'
--spec link_next(Pid::pid(), Next::pid()) -> ok.
+-spec link_next(Pid :: pid(), Next :: pid()) -> ok.
 link_next(Pid, Next) ->
   gen_server:call(Pid, {link_next, Next}).
+
+send(Pid, Vid) ->
+  gen_server:call(Pid, {send, Vid}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -85,17 +88,21 @@ handle_call(get_next, _From, State) -> {reply, maps:get(next, State), State};
 %% wakeup - only works if called from "env" process
 handle_call(wakeup, {FromPid, _Ref}, State) ->
   NewState = case process_info(FromPid, registered_name) of
-    {registered_name, Name} ->
-      if Name == env -> State#{state := running};
-        true -> State
-      end;
-    [] -> State
-  end,
+               {registered_name, Name} ->
+                 if Name == env -> State#{state := running};
+                   true -> State
+                 end;
+               [] -> State
+             end,
   Reply = {state, maps:get(state, NewState)},
   {reply, Reply, NewState};
 
 handle_call({link_next, Next}, _From, State) ->
   {reply, ok, State#{next := Next}};
+
+handle_call({send, Vid}, _From, State) ->
+  State2 = trans(Vid, State),
+  {reply, ok, State2};
 
 %% catch all
 handle_call(_Request, _From, State) ->
@@ -117,3 +124,15 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+trans(Vid, State) ->
+  Uid = maps:get(uid, State),
+  NewState = if
+               Vid > Uid ->
+                 State#{vid := Vid};
+               Vid =:= Uid ->
+                 State#{status := leader};
+               true ->
+                 State
+             end,
+  NewState.
