@@ -56,6 +56,7 @@ wakeup(Pid) ->
 link_next(Pid, Next) ->
   gen_server:call(Pid, {link_next, Next}).
 
+-spec send(Pid::pid(), Vid::float()) -> ok.
 send(Pid, Vid) ->
   gen_server:call(Pid, {send, Vid}).
 

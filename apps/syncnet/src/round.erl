@@ -58,6 +58,7 @@ init([]) ->
 
 handle_call(do_round, _From, State) ->
   Count = maps:get(count, State) + 1,
+  ok = send(State),
   {reply, {count, Count}, State#{count := Count}};
 
 handle_call(link_vertices, _From, State) ->
@@ -106,3 +107,9 @@ link_vertices(First, [], Acc) ->
 link_vertices(First, [H|T], Acc) ->
   vertex:link_next(First, H),
   link_vertices(H, T, [First|Acc]).
+
+%% @doc all Vertices send their Vid to the Next pid in the Ring
+send(State) ->
+  L = maps:get(vertices, State),
+  [vertex:send(vertex:get_next(H), vertex:get_vid(H)) || H <- L],
+  ok.

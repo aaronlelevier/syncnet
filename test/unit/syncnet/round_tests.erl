@@ -23,7 +23,8 @@ can_get_handler_list_test_() ->
     fun round_cleanup/1,
     [
       fun do_round_increments_round_count/0,
-      fun link_vertices_to_next/0
+      fun link_vertices_to_next/0,
+      fun elect_leader/0
     ]
   }.
 
@@ -52,6 +53,33 @@ link_vertices_to_next() ->
   _ = [
     ?assertEqual(true, is_pid(vertex:get_next(X))) ||
     X <- [Pid3, Pid2, Pid1]].
+
+elect_leader() ->
+  Vertices = round:list_vertices(),
+  % 3 vertices exist
+  ?assertEqual(3, length(Vertices)),
+  % all 3 have a status of unknown
+  ?assertEqual(
+    3, length(
+      lists:filter(fun(X) -> vertex:get_status(X) == unknown end, Vertices)
+    )),
+
+  % after 3 Rounds, the number of processes N, we should have 1 leader
+  _ = [round:do_round() || _ <- lists:seq(1, 3)],
+
+  NonLeaders = lists:filter(fun(X) -> vertex:get_status(X) == unknown end, Vertices),
+  ?assertEqual(2, length(NonLeaders)),
+
+  Leaders = lists:filter(fun(X) -> vertex:get_status(X) == leader end, Vertices),
+  ?assertEqual(1, length(Leaders)),
+
+  % Leader has the greatest 'uid'
+  [Leader|_] = Leaders,
+  [A,B|_] = NonLeaders,
+  ?assert(vertex:get_uid(Leader) > vertex:get_uid(A)),
+  ?assert(vertex:get_uid(Leader) > vertex:get_uid(B)).
+
+%% standalone tests
 
 link_vertices_test() ->
   {ok, Pid1} = vertex:start_link(),
